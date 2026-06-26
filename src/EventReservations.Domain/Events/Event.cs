@@ -1,15 +1,22 @@
 using EventReservations.Domain.Common;
+using EventReservations.Domain.Reservations;
 using EventReservations.Domain.Venues;
 
 namespace EventReservations.Domain.Events;
 
 /// <summary>
 /// Agregado raíz Evento. Concentra las reglas de creación (RF-01) y de ciclo de
-/// vida (RN03, RN06) y es la frontera de consistencia del aforo (las mecánicas
-/// de reserva se añaden junto al agregado Reservation).
+/// vida (RN03, RN06), y es la FRONTERA DE CONSISTENCIA del aforo.
 ///
-/// Las operaciones dependientes del tiempo reciben 'now' como parámetro para ser
-/// deterministas y testeables.
+/// Aforo (ADR-004): una reserva en pendiente_pago ya bloquea cupo.
+///   SeatsTaken  = plazas de reservas pendientes + confirmadas (bloquean venta)
+///   LostSeats   = plazas perdidas por penalización RN07 (no se liberan)
+///   AvailableSeats = Capacity - SeatsTaken - LostSeats
+///
+/// Las reglas de límite por transacción (RN04 &lt;1h, RN05 precio&gt;$100, RF-03
+/// &lt;24h) se validan en la capa de aplicación, donde se dispone del contexto y
+/// del reloj; el agregado garantiza la invariante de capacidad. La concurrencia
+/// se protege con el token xmin en infraestructura (ADR-006).
 /// </summary>
 public sealed class Event : Entity<Guid>
 {
@@ -29,6 +36,12 @@ public sealed class Event : Entity<Guid>
     public EventType Type { get; private set; }
     public EventStatus Status { get; private set; }
 
+    public int SeatsTaken { get; private set; }
+    public int LostSeats { get; private set; }
+
+    /// <summary>Plazas disponibles para la venta. Calculado, no se persiste.</summary>
+    public int AvailableSeats => Capacity.Value - SeatsTaken - LostSeats;
+
     private Event() { } // EF Core
 
     private Event(
@@ -44,6 +57,8 @@ public sealed class Event : Entity<Guid>
         Price = price;
         Type = type;
         Status = EventStatus.Activo;
+        SeatsTaken = 0;
+        LostSeats = 0;
     }
 
     public static Event Create(
@@ -75,7 +90,46 @@ public sealed class Event : Entity<Guid>
             venue.Id, capacity, schedule, price, type);
     }
 
-    /// <summary>Cancela el evento. Solo posible desde estado Activo.</summary>
+    /// <summary>
+    /// RF-03: crea una reserva (pendiente_pago) bloqueando el cupo. Valida estado
+    /// del evento, cantidad positiva y disponibilidad. Es el único punto que
+    /// aumenta SeatsTaken, evitando que el contador y las reservas diverjan.
+    /// </summary>
+    public Reservation Reserve(BuyerInfo buyer, int quantity, DateTime now)
+    {
+        ArgumentNullException.ThrowIfNull(buyer);
+
+        if (Status != EventStatus.Activo)
+            throw new DomainException("El evento no admite reservas en su estado actual.");
+
+        if (quantity <= 0)
+            throw new DomainException("La cantidad de entradas debe ser al menos 1.");
+
+        if (quantity > AvailableSeats)
+            throw new DomainException("No hay entradas disponibles suficientes para la reserva.");
+
+        SeatsTaken += quantity;
+        return Reservation.Create(Id, buyer, quantity, now);
+    }
+
+    /// <summary>Libera plazas al cancelar una reserva con 48h o más de antelación.</summary>
+    public void ReleaseSeats(int quantity)
+    {
+        GuardQuantityAgainstTaken(quantity);
+        SeatsTaken -= quantity;
+    }
+
+    /// <summary>
+    /// RN07: marca plazas como perdidas al cancelar con menos de 48h. Salen de
+    /// SeatsTaken pero NO vuelven a estar disponibles para la venta.
+    /// </summary>
+    public void LoseSeats(int quantity)
+    {
+        GuardQuantityAgainstTaken(quantity);
+        SeatsTaken -= quantity;
+        LostSeats += quantity;
+    }
+
     public void Cancel()
     {
         if (Status != EventStatus.Activo)
@@ -84,15 +138,20 @@ public sealed class Event : Entity<Guid>
         Status = EventStatus.Cancelado;
     }
 
-    /// <summary>
-    /// RN06: marca el evento como completado si la fecha actual supera su fin.
-    /// Idempotente y solo aplica a eventos activos (un evento cancelado no se
-    /// completa).
-    /// </summary>
+    /// <summary>RN06: completa el evento si la fecha actual supera su fin.</summary>
     public void MarkCompletedIfEnded(DateTime now)
     {
         if (Status == EventStatus.Activo && now > Schedule.EndsAt)
             Status = EventStatus.Completado;
+    }
+
+    private void GuardQuantityAgainstTaken(int quantity)
+    {
+        if (quantity <= 0)
+            throw new DomainException("La cantidad debe ser mayor que cero.");
+
+        if (quantity > SeatsTaken)
+            throw new DomainException("No se pueden liberar/perder más plazas de las ocupadas.");
     }
 
     private static void ValidateTitle(string title)
