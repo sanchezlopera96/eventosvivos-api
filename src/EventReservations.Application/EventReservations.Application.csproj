@@ -1,6 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- Capa de Aplicación: casos de uso (CQRS), DTOs, validaciones, interfaces. -->
   <ItemGroup>
+    <PackageReference Include="FluentValidation" Version="11.*" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\EventReservations.Domain\EventReservations.Domain.csproj" />
   </ItemGroup>
 </Project>
