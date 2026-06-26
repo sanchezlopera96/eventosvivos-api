@@ -72,4 +72,18 @@ public sealed class Reservation : Entity<Guid>
             ? CancellationOutcome.SeatsForfeited
             : CancellationOutcome.SeatsReleased;
     }
+
+    /// <summary>
+    /// Cancela la reserva por cancelación del evento (no por iniciativa del
+    /// comprador). No aplica la penalización RN07. Idempotente: si ya está
+    /// cancelada, no hace nada. Aplica tanto a pendientes como a confirmadas.
+    /// </summary>
+    public void CancelDueToEventCancellation(DateTime now)
+    {
+        if (Status == ReservationStatus.Cancelada)
+            return;
+
+        Status = ReservationStatus.Cancelada;
+        CancelledAt = now;
+    }
 }

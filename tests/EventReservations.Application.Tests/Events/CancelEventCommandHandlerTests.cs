@@ -1,3 +1,4 @@
+using EventReservations.Domain.Common;
 using EventReservations.Application.Abstractions;
 using EventReservations.Application.Common;
 using EventReservations.Application.Events.CancelEvent;
@@ -64,3 +65,4 @@ public class CancelEventCommandHandlerTests
         _uow.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 }
+

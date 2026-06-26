@@ -1,3 +1,4 @@
+using EventReservations.Domain.Common;
 using EventReservations.Application.Abstractions;
 using EventReservations.Application.Common;
 using EventReservations.Application.Reservations.CancelReservation;
@@ -80,3 +81,4 @@ public class CancelReservationCommandHandlerTests
         ev.AvailableSeats.Should().Be(96);
     }
 }
+
