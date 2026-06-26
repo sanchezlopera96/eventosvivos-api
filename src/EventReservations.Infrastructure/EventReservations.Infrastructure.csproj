@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Capa de Infraestructura: EF Core, PostgreSQL, repositorios concretos.
+       Implementa las interfaces definidas en Application. -->
+  <ItemGroup>
+    <ProjectReference Include="..\EventReservations.Application\EventReservations.Application.csproj" />
+  </ItemGroup>
+</Project>

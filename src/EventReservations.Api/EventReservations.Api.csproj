@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <!-- Capa de presentación: endpoints REST, DI, middleware, manejo de errores. -->
+  <ItemGroup>
+    <ProjectReference Include="..\EventReservations.Application\EventReservations.Application.csproj" />
+    <ProjectReference Include="..\EventReservations.Infrastructure\EventReservations.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

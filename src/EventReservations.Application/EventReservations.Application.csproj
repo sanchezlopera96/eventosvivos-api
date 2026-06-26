@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Capa de Aplicación: casos de uso (CQRS), DTOs, validaciones, interfaces. -->
+  <ItemGroup>
+    <ProjectReference Include="..\EventReservations.Domain\EventReservations.Domain.csproj" />
+  </ItemGroup>
+</Project>
