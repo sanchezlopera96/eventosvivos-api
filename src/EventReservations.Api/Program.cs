@@ -7,6 +7,7 @@ using EventReservations.Infrastructure;
 using EventReservations.Infrastructure.Persistence;
 using FluentValidation;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,6 +23,15 @@ builder.Services.AddScoped<IValidator<CreateReservationCommand>, CreateReservati
 // Manejo global de errores -> ProblemDetails.
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
+
+// Reenvío de cabeceras: detrás de Azure App Service / proxy, respeta el esquema
+// original (X-Forwarded-Proto) para que HTTPS redirection no entre en bucle.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 // OpenAPI / Swagger.
 builder.Services.AddEndpointsApiExplorer();
@@ -57,6 +67,8 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 // --- Pipeline ---
+
+app.UseForwardedHeaders();
 
 app.UseExceptionHandler();
 

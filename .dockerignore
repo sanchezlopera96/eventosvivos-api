@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+.git/
+.github/
+**/appsettings.Development.json
+docs/
+*.md
+tests/
+docker-compose.yml
