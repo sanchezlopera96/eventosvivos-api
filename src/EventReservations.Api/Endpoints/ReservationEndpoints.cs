@@ -1,3 +1,4 @@
+using EventReservations.Api.Security;
 using EventReservations.Api.Validation;
 using EventReservations.Application.Abstractions;
 using EventReservations.Application.Reservations.CancelReservation;
@@ -34,6 +35,7 @@ public static class ReservationEndpoints
                 var code = await handler.HandleAsync(new ConfirmPaymentCommand(id), ct);
                 return Results.Ok(new { code });
             })
+            .AddEndpointFilter<AdminApiKeyFilter>()
             .WithName("ConfirmPayment");
 
         // RF-05: cancelar reserva (devuelve el efecto sobre el aforo)
