@@ -1,3 +1,4 @@
+using EventReservations.Api.Security;
 using EventReservations.Api.Validation;
 using EventReservations.Application.Abstractions;
 using EventReservations.Application.Events.CancelEvent;
@@ -23,6 +24,7 @@ public static class EventEndpoints
                 var id = await handler.HandleAsync(command, ct);
                 return Results.Created($"/api/events/{id}", new { id });
             })
+            .AddEndpointFilter<AdminApiKeyFilter>()
             .AddEndpointFilter<ValidationFilter<CreateEventCommand>>()
             .WithName("CreateEvent");
 
@@ -63,6 +65,7 @@ public static class EventEndpoints
                 var cancelledReservations = await handler.HandleAsync(new CancelEventCommand(id), ct);
                 return Results.Ok(new { cancelledReservations });
             })
+            .AddEndpointFilter<AdminApiKeyFilter>()
             .WithName("CancelEvent");
 
         return app;
