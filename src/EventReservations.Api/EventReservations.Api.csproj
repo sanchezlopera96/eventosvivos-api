@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
-  <!-- Capa de presentación: endpoints REST, DI, middleware, manejo de errores. -->
+  <!-- Capa de presentación: endpoints REST (Minimal APIs), DI, middleware,
+       manejo global de errores, OpenAPI/Swagger. -->
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" Version="11.*" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="7.*" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\EventReservations.Application\EventReservations.Application.csproj" />
     <ProjectReference Include="..\EventReservations.Infrastructure\EventReservations.Infrastructure.csproj" />
