@@ -25,7 +25,14 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException(
                 "Falta la cadena de conexión 'ConnectionStrings:Default'.");
 
-        services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
+        services.AddDbContext<AppDbContext>(options =>
+            options.UseNpgsql(connectionString, npgsql =>
+                // Resiliencia: reintenta ante fallos transitorios de conexión
+                // (p. ej. la BD aún no está lista al desplegar en la nube).
+                npgsql.EnableRetryOnFailure(
+                    maxRetryCount: 5,
+                    maxRetryDelay: TimeSpan.FromSeconds(10),
+                    errorCodesToAdd: null)));
 
         // Reloj inyectable (lo usan los handlers de comandos).
         services.AddSingleton(TimeProvider.System);
