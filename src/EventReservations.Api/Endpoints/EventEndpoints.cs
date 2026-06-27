@@ -5,6 +5,7 @@ using EventReservations.Application.Events.CancelEvent;
 using EventReservations.Application.Events.CreateEvent;
 using EventReservations.Application.Events.ListEvents;
 using EventReservations.Application.Events.OccupancyReport;
+using EventReservations.Application.Events.GetEventById;
 using EventReservations.Domain.Events;
 
 namespace EventReservations.Api.Endpoints;
@@ -55,6 +56,17 @@ public static class EventEndpoints
                 return Results.Ok(report);
             })
             .WithName("OccupancyReport");
+
+        // Obtener un evento por id
+        group.MapGet("/{id:guid}", async (
+                Guid id,
+                IQueryHandler<GetEventByIdQuery, EventDetailDto> handler,
+                CancellationToken ct) =>
+        {
+            var ev = await handler.HandleAsync(new GetEventByIdQuery(id), ct);
+            return Results.Ok(ev);
+        })
+            .WithName("GetEventById");
 
         // Cancelar evento (cascada a reservas)
         group.MapPost("/{id:guid}/cancel", async (
