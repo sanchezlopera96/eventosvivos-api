@@ -4,6 +4,7 @@ using EventReservations.Application.Abstractions;
 using EventReservations.Application.Reservations.CancelReservation;
 using EventReservations.Application.Reservations.ConfirmPayment;
 using EventReservations.Application.Reservations.CreateReservation;
+using EventReservations.Application.Reservations.GetReservationById;
 using EventReservations.Domain.Reservations;
 
 namespace EventReservations.Api.Endpoints;
@@ -48,6 +49,17 @@ public static class ReservationEndpoints
                 return Results.Ok(new { outcome = outcome.ToString() });
             })
             .WithName("CancelReservation");
+
+        // Obtener una reserva por id (el localizador actua como llave)
+        group.MapGet("/{id:guid}", async (
+                Guid id,
+                IQueryHandler<GetReservationByIdQuery, ReservationDetailDto> handler,
+                CancellationToken ct) =>
+        {
+            var r = await handler.HandleAsync(new GetReservationByIdQuery(id), ct);
+            return Results.Ok(r);
+        })
+            .WithName("GetReservationById");
 
         return app;
     }
