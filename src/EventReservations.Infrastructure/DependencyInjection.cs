@@ -7,6 +7,7 @@ using EventReservations.Application.Events.GetEventById;
 using EventReservations.Application.Reservations.CancelReservation;
 using EventReservations.Application.Reservations.ConfirmPayment;
 using EventReservations.Application.Reservations.CreateReservation;
+using EventReservations.Application.Reservations.GetReservationById;
 using EventReservations.Domain.Reservations;
 using EventReservations.Infrastructure.Persistence;
 using EventReservations.Infrastructure.Persistence.Queries;
@@ -54,6 +55,7 @@ public static class DependencyInjection
         // Handlers de consultas (lectura)
         services.AddScoped<IQueryHandler<ListEventsQuery, IReadOnlyList<EventListItemDto>>, ListEventsQueryHandler>();
         services.AddScoped<IQueryHandler<GetEventByIdQuery, EventDetailDto>, GetEventByIdQueryHandler>();
+        services.AddScoped<IQueryHandler<GetReservationByIdQuery, ReservationDetailDto>, GetReservationByIdQueryHandler>();
         services.AddScoped<IQueryHandler<OccupancyReportQuery, OccupancyReportDto>, OccupancyReportQueryHandler>();
 
         return services;
