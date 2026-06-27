@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace EventReservations.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260627022656_InitialCreate")]
+    [Migration("20260627025443_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -87,7 +87,7 @@ namespace EventReservations.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime?>("CancelledAt")
-                        .HasColumnType("timestamp without time zone");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Code")
                         .HasMaxLength(9)
@@ -95,10 +95,10 @@ namespace EventReservations.Infrastructure.Persistence.Migrations
                         .HasColumnName("Code");
 
                     b.Property<DateTime?>("ConfirmedAt")
-                        .HasColumnType("timestamp without time zone");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("EventId")
                         .HasColumnType("uuid");
@@ -181,11 +181,11 @@ namespace EventReservations.Infrastructure.Persistence.Migrations
                                 .HasColumnType("uuid");
 
                             b1.Property<DateTime>("EndsAt")
-                                .HasColumnType("timestamp without time zone")
+                                .HasColumnType("timestamp with time zone")
                                 .HasColumnName("EndsAt");
 
                             b1.Property<DateTime>("StartsAt")
-                                .HasColumnType("timestamp without time zone")
+                                .HasColumnType("timestamp with time zone")
                                 .HasColumnName("StartsAt");
 
                             b1.HasKey("EventId");

@@ -28,13 +28,12 @@ public sealed class EventConfiguration : IEntityTypeConfiguration<Event>
                .HasColumnName("Capacity")
                .IsRequired();
 
-        // Schedule (VO de varios campos) -> owned type (columnas embebidas).
+        // Schedule (VO de varios campos) -> owned type. UTC de punta a punta:
+        // timestamp with time zone (default de Npgsql para DateTime UTC).
         builder.OwnsOne(e => e.Schedule, s =>
         {
-            s.Property(x => x.StartsAt).HasColumnName("StartsAt")
-             .HasColumnType("timestamp without time zone").IsRequired();
-            s.Property(x => x.EndsAt).HasColumnName("EndsAt")
-             .HasColumnType("timestamp without time zone").IsRequired();
+            s.Property(x => x.StartsAt).HasColumnName("StartsAt").IsRequired();
+            s.Property(x => x.EndsAt).HasColumnName("EndsAt").IsRequired();
         });
         builder.Navigation(e => e.Schedule).IsRequired();
 
@@ -56,4 +55,3 @@ public sealed class EventConfiguration : IEntityTypeConfiguration<Event>
         builder.Property<uint>("xmin").IsRowVersion().HasColumnName("xmin");
     }
 }
-

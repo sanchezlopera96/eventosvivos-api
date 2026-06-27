@@ -38,11 +38,9 @@ public sealed class ReservationConfiguration : IEntityTypeConfiguration<Reservat
                .HasMaxLength(9);
         builder.HasIndex(r => r.Code).IsUnique();
 
-        builder.Property(r => r.CreatedAt)
-               .HasColumnType("timestamp without time zone").IsRequired();
-        builder.Property(r => r.ConfirmedAt)
-               .HasColumnType("timestamp without time zone");
-        builder.Property(r => r.CancelledAt)
-               .HasColumnType("timestamp without time zone");
+        // UTC de punta a punta -> timestamp with time zone (default Npgsql).
+        builder.Property(r => r.CreatedAt).IsRequired();
+        builder.Property(r => r.ConfirmedAt);
+        builder.Property(r => r.CancelledAt);
     }
 }
