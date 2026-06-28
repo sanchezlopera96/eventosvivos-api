@@ -1,10 +1,10 @@
-using EventReservations.Api.Security;
 using EventReservations.Api.Validation;
 using EventReservations.Application.Abstractions;
 using EventReservations.Application.Reservations.CancelReservation;
 using EventReservations.Application.Reservations.ConfirmPayment;
 using EventReservations.Application.Reservations.CreateReservation;
 using EventReservations.Application.Reservations.GetReservationById;
+using EventReservations.Application.Reservations.ListReservations;
 using EventReservations.Domain.Reservations;
 
 namespace EventReservations.Api.Endpoints;
@@ -15,7 +15,7 @@ public static class ReservationEndpoints
     {
         var group = app.MapGroup("/api/reservations").WithTags("Reservations");
 
-        // RF-03: reservar entradas
+        // RF-03: reservar entradas (publico)
         group.MapPost("/", async (
                 CreateReservationCommand command,
                 ICommandHandler<CreateReservationCommand, Guid> handler,
@@ -27,7 +27,19 @@ public static class ReservationEndpoints
             .AddEndpointFilter<ValidationFilter<CreateReservationCommand>>()
             .WithName("CreateReservation");
 
-        // RF-04: confirmar pago (devuelve el código EV-######)
+        // Listar reservas, con filtro opcional por estado (requiere administrador)
+        group.MapGet("/", async (
+                IQueryHandler<ListReservationsQuery, IReadOnlyList<ReservationListItemDto>> handler,
+                CancellationToken ct,
+                ReservationStatus? status) =>
+            {
+                var items = await handler.HandleAsync(new ListReservationsQuery(status), ct);
+                return Results.Ok(items);
+            })
+            .RequireAuthorization("Admin")
+            .WithName("ListReservations");
+
+        // RF-04: confirmar pago (requiere administrador; devuelve el codigo EV-######)
         group.MapPost("/{id:guid}/confirm", async (
                 Guid id,
                 ICommandHandler<ConfirmPaymentCommand, string> handler,
@@ -36,10 +48,10 @@ public static class ReservationEndpoints
                 var code = await handler.HandleAsync(new ConfirmPaymentCommand(id), ct);
                 return Results.Ok(new { code });
             })
-            .AddEndpointFilter<AdminApiKeyFilter>()
+            .RequireAuthorization("Admin")
             .WithName("ConfirmPayment");
 
-        // RF-05: cancelar reserva (devuelve el efecto sobre el aforo)
+        // RF-05: cancelar reserva (publico; el localizador es la llave)
         group.MapPost("/{id:guid}/cancel", async (
                 Guid id,
                 ICommandHandler<CancelReservationCommand, CancellationOutcome> handler,

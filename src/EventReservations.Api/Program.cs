@@ -1,4 +1,6 @@
+using System.Text;
 using System.Threading.RateLimiting;
+using EventReservations.Api.Auth;
 using EventReservations.Api.Endpoints;
 using EventReservations.Api.Errors;
 using EventReservations.Application.Events.CreateEvent;
@@ -6,9 +8,12 @@ using EventReservations.Application.Reservations.CreateReservation;
 using EventReservations.Infrastructure;
 using EventReservations.Infrastructure.Persistence;
 using FluentValidation;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,7 +29,40 @@ builder.Services.AddScoped<IValidator<CreateReservationCommand>, CreateReservati
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
-// Reenvío de cabeceras: detrás de Azure App Service / proxy, respeta el esquema
+// --- Autenticacion JWT (area de administracion) ---
+builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
+builder.Services.Configure<AdminCredentialsOptions>(
+    builder.Configuration.GetSection(AdminCredentialsOptions.SectionName));
+builder.Services.AddSingleton<TokenService>();
+
+builder.Services
+    .AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<IOptions<JwtOptions>>((bearer, jwtOptions) =>
+    {
+        var jwt = jwtOptions.Value;
+        bearer.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwt.Issuer,
+            ValidAudience = jwt.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(string.IsNullOrEmpty(jwt.SigningKey)
+                    ? new string('0', 32)   // placeholder; en prod la clave viene por env
+                    : jwt.SigningKey)),
+            ClockSkew = TimeSpan.FromSeconds(30),
+        };
+    });
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer();
+
+builder.Services.AddAuthorization(options =>
+    options.AddPolicy("Admin", policy => policy.RequireRole("Admin")));
+
+// Reenvio de cabeceras: detras de Azure App Service / proxy, respeta el esquema
 // original (X-Forwarded-Proto) para que HTTPS redirection no entre en bucle.
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -33,11 +71,36 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Clear();
 });
 
-// OpenAPI / Swagger.
+// OpenAPI / Swagger (con soporte para el token Bearer).
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Description = "Pega el token JWT obtenido en /api/auth/login.",
+    });
+    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer",
+                },
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
-// Rate limiting: límite por IP para mitigar abuso/DoS en una API pública.
+// Rate limiting: limite por IP para mitigar abuso/DoS en una API publica.
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -51,7 +114,7 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 
-// CORS: en producción solo los orígenes configurados; en desarrollo, abierto.
+// CORS: en produccion solo los origenes configurados; en desarrollo, abierto.
 const string CorsPolicy = "spa";
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 builder.Services.AddCors(options =>
@@ -61,7 +124,7 @@ builder.Services.AddCors(options =>
             policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod();
         else if (builder.Environment.IsDevelopment())
             policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
-        // Producción sin orígenes configurados: política vacía (no se permite CORS).
+        // Produccion sin origenes configurados: politica vacia (no se permite CORS).
     }));
 
 var app = builder.Build();
@@ -72,7 +135,7 @@ app.UseForwardedHeaders();
 
 app.UseExceptionHandler();
 
-// Cabeceras de seguridad básicas.
+// Cabeceras de seguridad basicas.
 app.Use(async (context, next) =>
 {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
@@ -86,14 +149,14 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Aplica migraciones (y seed de venues) al arrancar: práctico para demo y deploy.
+// Aplica migraciones (y seed de venues) al arrancar: practico para demo y deploy.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
 }
 
-// Swagger: solo en desarrollo o si se habilita explícitamente por configuración.
+// Swagger: solo en desarrollo o si se habilita explicitamente por configuracion.
 var swaggerEnabled = app.Environment.IsDevelopment()
     || app.Configuration.GetValue<bool>("Swagger:Enabled");
 if (swaggerEnabled)
@@ -105,11 +168,15 @@ if (swaggerEnabled)
 app.UseRateLimiter();
 app.UseCors(CorsPolicy);
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapGet("/health", () => Results.Ok(new { status = "ok" })).WithTags("Health");
+app.MapAuthEndpoints();
 app.MapEventEndpoints();
 app.MapReservationEndpoints();
 
 app.Run();
 
-// Necesario para los tests de integración con WebApplicationFactory.
+// Necesario para los tests de integracion con WebApplicationFactory.
 public partial class Program;
