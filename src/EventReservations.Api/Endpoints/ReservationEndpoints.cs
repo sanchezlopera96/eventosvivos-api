@@ -64,17 +64,8 @@ public static class ReservationEndpoints
             .WithName("CancelReservation");
 
         // Obtener una reserva por id (el localizador actua como llave)
-        group.MapGet("/{id:guid}", async (
-                Guid id,
-                IQueryHandler<GetReservationByIdQuery, ReservationDetailDto> handler,
-                CancellationToken ct) =>
-        {
-            var r = await handler.HandleAsync(new GetReservationByIdQuery(id), ct);
-            return Results.Ok(r);
-        })
-            .WithName("GetReservationById");
-
         // Buscar reservas por correo (publico). Ver nota de privacidad en el query.
+        // Se declara antes de "/{id:guid}" para que la ruta literal tenga prioridad.
         group.MapGet("/by-email", async (
                 string email,
                 IQueryHandler<ListReservationsByEmailQuery, IReadOnlyList<ReservationListItemDto>> handler,
@@ -87,6 +78,16 @@ public static class ReservationEndpoints
             return Results.Ok(items);
         })
             .WithName("ListReservationsByEmail");
+
+        group.MapGet("/{id:guid}", async (
+                Guid id,
+                IQueryHandler<GetReservationByIdQuery, ReservationDetailDto> handler,
+                CancellationToken ct) =>
+        {
+            var r = await handler.HandleAsync(new GetReservationByIdQuery(id), ct);
+            return Results.Ok(r);
+        })
+            .WithName("GetReservationById");
 
         return app;
     }

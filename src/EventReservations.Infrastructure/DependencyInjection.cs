@@ -1,6 +1,7 @@
 using EventReservations.Application.Abstractions;
 using EventReservations.Application.Events.CancelEvent;
 using EventReservations.Application.Events.CreateEvent;
+using EventReservations.Application.Events.UpdateEvent;
 using EventReservations.Application.Events.ListEvents;
 using EventReservations.Application.Events.OccupancyReport;
 using EventReservations.Application.Events.GetEventById;
@@ -49,6 +50,7 @@ public static class DependencyInjection
 
         // Handlers de comandos (escritura)
         services.AddScoped<ICommandHandler<CreateEventCommand, Guid>, CreateEventCommandHandler>();
+        services.AddScoped<ICommandHandler<UpdateEventCommand, Guid>, UpdateEventCommandHandler>();
         services.AddScoped<ICommandHandler<CancelEventCommand, int>, CancelEventCommandHandler>();
         services.AddScoped<ICommandHandler<CreateReservationCommand, Guid>, CreateReservationCommandHandler>();
         services.AddScoped<ICommandHandler<ConfirmPaymentCommand, string>, ConfirmPaymentCommandHandler>();
@@ -57,10 +59,10 @@ public static class DependencyInjection
         // Handlers de consultas (lectura)
         services.AddScoped<IQueryHandler<ListEventsQuery, IReadOnlyList<EventListItemDto>>, ListEventsQueryHandler>();
         services.AddScoped<IQueryHandler<GetEventByIdQuery, EventDetailDto>, GetEventByIdQueryHandler>();
-        services.AddScoped<IQueryHandler<GetReservationByIdQuery, ReservationDetailDto>, GetReservationByIdQueryHandler>();
-        services.AddScoped<IQueryHandler<ListReservationsQuery, IReadOnlyList<ReservationListItemDto>>, ListReservationsQueryHandler>();
-        services.AddScoped<IQueryHandler<ListReservationsByEmailQuery, IReadOnlyList<ReservationListItemDto>>, ListReservationsByEmailQueryHandler>();
         services.AddScoped<IQueryHandler<OccupancyReportQuery, OccupancyReportDto>, OccupancyReportQueryHandler>();
+        services.AddScoped<IQueryHandler<ListReservationsQuery, IReadOnlyList<ReservationListItemDto>>, ListReservationsQueryHandler>();
+        services.AddScoped<IQueryHandler<GetReservationByIdQuery, ReservationDetailDto>, GetReservationByIdQueryHandler>();
+        services.AddScoped<IQueryHandler<ListReservationsByEmailQuery, IReadOnlyList<ReservationListItemDto>>, ListReservationsByEmailQueryHandler>();
 
         return services;
     }

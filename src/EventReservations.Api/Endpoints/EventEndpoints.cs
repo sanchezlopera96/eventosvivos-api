@@ -2,6 +2,7 @@ using EventReservations.Api.Validation;
 using EventReservations.Application.Abstractions;
 using EventReservations.Application.Events.CancelEvent;
 using EventReservations.Application.Events.CreateEvent;
+using EventReservations.Application.Events.UpdateEvent;
 using EventReservations.Application.Events.ListEvents;
 using EventReservations.Application.Events.OccupancyReport;
 using EventReservations.Application.Events.GetEventById;
@@ -27,6 +28,22 @@ public static class EventEndpoints
             .RequireAuthorization("Admin")
             .AddEndpointFilter<ValidationFilter<CreateEventCommand>>()
             .WithName("CreateEvent");
+
+        // RF (editar): actualizar un evento activo (requiere administrador)
+        group.MapPut("/{id:guid}", async (
+                Guid id,
+                UpdateEventCommand body,
+                ICommandHandler<UpdateEventCommand, Guid> handler,
+                CancellationToken ct) =>
+            {
+                // El id viaja en la ruta; se sobreescribe el del body por seguridad.
+                var command = body with { EventId = id };
+                var updatedId = await handler.HandleAsync(command, ct);
+                return Results.Ok(new { id = updatedId });
+            })
+            .RequireAuthorization("Admin")
+            .AddEndpointFilter<ValidationFilter<UpdateEventCommand>>()
+            .WithName("UpdateEvent");
 
         // RF-02: listar eventos con filtros opcionales (query string)
         group.MapGet("/", async (

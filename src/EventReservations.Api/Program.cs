@@ -4,6 +4,7 @@ using EventReservations.Api.Auth;
 using EventReservations.Api.Endpoints;
 using EventReservations.Api.Errors;
 using EventReservations.Application.Events.CreateEvent;
+using EventReservations.Application.Events.UpdateEvent;
 using EventReservations.Application.Reservations.CreateReservation;
 using EventReservations.Infrastructure;
 using EventReservations.Infrastructure.Persistence;
@@ -23,6 +24,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 // Validadores de entrada (FluentValidation), usados por el ValidationFilter.
 builder.Services.AddScoped<IValidator<CreateEventCommand>, CreateEventCommandValidator>();
+builder.Services.AddScoped<IValidator<UpdateEventCommand>, UpdateEventCommandValidator>();
 builder.Services.AddScoped<IValidator<CreateReservationCommand>, CreateReservationCommandValidator>();
 
 // Manejo global de errores -> ProblemDetails.

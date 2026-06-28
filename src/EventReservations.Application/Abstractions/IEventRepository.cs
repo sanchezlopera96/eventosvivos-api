@@ -10,9 +10,11 @@ public interface IEventRepository
 
     /// <summary>
     /// RN02: indica si el venue ya tiene un evento activo cuyo horario se solapa
-    /// con la ventana indicada. Se usa al crear un evento para impedir choques.
+    /// con la ventana indicada. Se usa al crear o editar un evento para impedir
+    /// choques. Al editar, se puede excluir el propio evento con excludeEventId.
     /// </summary>
     Task<bool> ExistsActiveOverlapAsync(
         int venueId, DateTime startsAt, DateTime endsAt,
+        Guid? excludeEventId = null,
         CancellationToken cancellationToken = default);
 }

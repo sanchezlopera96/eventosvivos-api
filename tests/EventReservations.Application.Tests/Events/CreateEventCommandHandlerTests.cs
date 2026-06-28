@@ -52,7 +52,7 @@ public class CreateEventCommandHandlerTests
     {
         SetupVenue();
         _events.Setup(e => e.ExistsActiveOverlapAsync(
-                    1, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+                    1, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(true); // RN02
 
         var act = () => CreateHandler().HandleAsync(ValidCommand());
@@ -66,7 +66,7 @@ public class CreateEventCommandHandlerTests
     {
         SetupVenue(capacity: 50);          // venue pequeño
         _events.Setup(e => e.ExistsActiveOverlapAsync(
-                    It.IsAny<int>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+                    It.IsAny<int>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(false);
 
         var act = () => CreateHandler().HandleAsync(ValidCommand(capacity: 100)); // > venue (RN01)
@@ -79,7 +79,7 @@ public class CreateEventCommandHandlerTests
     {
         SetupVenue();
         _events.Setup(e => e.ExistsActiveOverlapAsync(
-                    It.IsAny<int>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+                    It.IsAny<int>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(false);
 
         var id = await CreateHandler().HandleAsync(ValidCommand());
