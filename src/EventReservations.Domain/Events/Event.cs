@@ -91,6 +91,55 @@ public sealed class Event : Entity<Guid>
     }
 
     /// <summary>
+    /// RF (editar): actualiza los datos del evento aplicando las mismas
+    /// invariantes que la creación, más la regla de que la capacidad no puede
+    /// quedar por debajo de las plazas ya ocupadas. Solo eventos activos.
+    /// La RN02 (no solapamiento) se valida en la capa de aplicación, que dispone
+    /// del contexto de los demás eventos.
+    /// </summary>
+    public void Update(
+        string title, string description, Venue venue,
+        Capacity capacity, Schedule schedule, Money price,
+        EventType type, DateTime now)
+    {
+        ArgumentNullException.ThrowIfNull(venue);
+
+        if (Status != EventStatus.Activo)
+            throw new DomainException("Solo se puede editar un evento activo.");
+
+        ValidateTitle(title);
+        ValidateDescription(description);
+
+        // RN01: la capacidad del evento no puede exceder la del venue.
+        if (capacity.Value > venue.Capacity)
+            throw new DomainException(
+                "La capacidad del evento no puede exceder la capacidad del venue.");
+
+        // No se puede reducir la capacidad por debajo de las plazas ya ocupadas
+        // (reservas pendientes/confirmadas) ni de las perdidas por penalización.
+        if (capacity.Value < SeatsTaken + LostSeats)
+            throw new DomainException(
+                "La capacidad no puede ser menor que las plazas ya ocupadas.");
+
+        // RF-01: la fecha de inicio debe ser futura.
+        if (schedule.StartsAt <= now)
+            throw new DomainException("La fecha de inicio del evento debe ser futura.");
+
+        // RN03: en fin de semana, no se permite iniciar después de las 22:00.
+        if (IsWeekend(schedule.StartsAt) && schedule.StartsAt.TimeOfDay > WeekendCurfew)
+            throw new DomainException(
+                "Los eventos en fin de semana no pueden iniciar después de las 22:00.");
+
+        Title = title.Trim();
+        Description = description.Trim();
+        VenueId = venue.Id;
+        Capacity = capacity;
+        Schedule = schedule;
+        Price = price;
+        Type = type;
+    }
+
+    /// <summary>
     /// RF-03: crea una reserva (pendiente_pago) bloqueando el cupo. Valida estado
     /// del evento, cantidad positiva y disponibilidad. Es el único punto que
     /// aumenta SeatsTaken, evitando que el contador y las reservas diverjan.

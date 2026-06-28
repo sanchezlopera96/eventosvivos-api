@@ -19,12 +19,15 @@ public sealed class EventRepository : IEventRepository
     /// <summary>
     /// RN02: ¿hay algún evento activo en el mismo venue cuyo horario se solapa?
     /// Dos intervalos [a1,a2) y [b1,b2) se solapan si a1 &lt; b2 y b1 &lt; a2.
+    /// Al editar se excluye el propio evento mediante excludeEventId.
     /// </summary>
     public Task<bool> ExistsActiveOverlapAsync(
-        int venueId, DateTime startsAt, DateTime endsAt, CancellationToken cancellationToken = default)
+        int venueId, DateTime startsAt, DateTime endsAt,
+        Guid? excludeEventId = null, CancellationToken cancellationToken = default)
         => _db.Events.AnyAsync(
             e => e.VenueId == venueId
                  && e.Status == EventStatus.Activo
+                 && (excludeEventId == null || e.Id != excludeEventId)
                  && e.Schedule.StartsAt < endsAt
                  && startsAt < e.Schedule.EndsAt,
             cancellationToken);
