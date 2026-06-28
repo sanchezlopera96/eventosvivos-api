@@ -1,4 +1,3 @@
-using EventReservations.Api.Security;
 using EventReservations.Api.Validation;
 using EventReservations.Application.Abstractions;
 using EventReservations.Application.Events.CancelEvent;
@@ -16,7 +15,7 @@ public static class EventEndpoints
     {
         var group = app.MapGroup("/api/events").WithTags("Events");
 
-        // RF-01: crear evento
+        // RF-01: crear evento (requiere autenticacion de administrador)
         group.MapPost("/", async (
                 CreateEventCommand command,
                 ICommandHandler<CreateEventCommand, Guid> handler,
@@ -25,7 +24,7 @@ public static class EventEndpoints
                 var id = await handler.HandleAsync(command, ct);
                 return Results.Created($"/api/events/{id}", new { id });
             })
-            .AddEndpointFilter<AdminApiKeyFilter>()
+            .RequireAuthorization("Admin")
             .AddEndpointFilter<ValidationFilter<CreateEventCommand>>()
             .WithName("CreateEvent");
 
@@ -46,7 +45,7 @@ public static class EventEndpoints
             })
             .WithName("ListEvents");
 
-        // RF-06: reporte de ocupación
+        // RF-06: reporte de ocupacion
         group.MapGet("/{id:guid}/occupancy", async (
                 Guid id,
                 IQueryHandler<OccupancyReportQuery, OccupancyReportDto> handler,
@@ -68,7 +67,7 @@ public static class EventEndpoints
         })
             .WithName("GetEventById");
 
-        // Cancelar evento (cascada a reservas)
+        // Cancelar evento (cascada a reservas) - requiere administrador
         group.MapPost("/{id:guid}/cancel", async (
                 Guid id,
                 ICommandHandler<CancelEventCommand, int> handler,
@@ -77,7 +76,7 @@ public static class EventEndpoints
                 var cancelledReservations = await handler.HandleAsync(new CancelEventCommand(id), ct);
                 return Results.Ok(new { cancelledReservations });
             })
-            .AddEndpointFilter<AdminApiKeyFilter>()
+            .RequireAuthorization("Admin")
             .WithName("CancelEvent");
 
         return app;

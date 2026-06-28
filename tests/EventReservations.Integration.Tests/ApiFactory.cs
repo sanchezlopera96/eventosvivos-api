@@ -11,15 +11,22 @@ using Xunit;
 namespace EventReservations.Integration.Tests;
 
 /// <summary>
-/// Levanta la API real (Program) en memoria contra un PostgreSQL efímero de
-/// Testcontainers. Inyecta la API key de admin por configuración y reemplaza el
-/// registro del DbContext para apuntarlo al contenedor (esto se hace en
-/// ConfigureTestServices, que se ejecuta después del registro de la app, por lo
-/// que siempre gana, sin depender del orden de carga de configuración).
+/// Levanta la API real (Program) en memoria contra un PostgreSQL efimero de
+/// Testcontainers. Inyecta la configuracion JWT y las credenciales de admin de
+/// prueba por configuracion, y reemplaza el registro del DbContext para
+/// apuntarlo al contenedor (en ConfigureTestServices, que se ejecuta despues
+/// del registro de la app, por lo que siempre gana).
 /// </summary>
 public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
-    public const string AdminApiKey = "test-admin-key";
+    // Credenciales de administracion de prueba.
+    public const string AdminUsername = "admin";
+    public const string AdminPassword = "test-password";
+    // Hash BCrypt de "test-password".
+    private const string AdminPasswordHash = "$2b$11$vsMppNRCleO0FBWsT9b4CuEX90yzOriqAYMFh75zIto1VGygBjzcq";
+
+    // Clave de firma JWT de prueba (>= 32 chars).
+    public const string JwtSigningKey = "test-jwt-signing-key-con-longitud-suficiente-2026";
 
     private readonly PostgreSqlContainer _db = new PostgreSqlBuilder("postgres:16").Build();
 
@@ -29,7 +36,12 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Security:AdminApiKey"] = AdminApiKey,
+                ["Jwt:Issuer"] = "eventosvivos",
+                ["Jwt:Audience"] = "eventosvivos-admin",
+                ["Jwt:SigningKey"] = JwtSigningKey,
+                ["Jwt:ExpirationMinutes"] = "120",
+                ["AdminCredentials:Username"] = AdminUsername,
+                ["AdminCredentials:PasswordHash"] = AdminPasswordHash,
                 ["Swagger:Enabled"] = "false"
             });
         });
