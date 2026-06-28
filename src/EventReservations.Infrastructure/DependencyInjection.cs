@@ -9,6 +9,7 @@ using EventReservations.Application.Reservations.ConfirmPayment;
 using EventReservations.Application.Reservations.CreateReservation;
 using EventReservations.Application.Reservations.GetReservationById;
 using EventReservations.Application.Reservations.ListReservations;
+using EventReservations.Application.Reservations.ListReservationsByEmail;
 using EventReservations.Domain.Reservations;
 using EventReservations.Infrastructure.Persistence;
 using EventReservations.Infrastructure.Persistence.Queries;
@@ -58,6 +59,7 @@ public static class DependencyInjection
         services.AddScoped<IQueryHandler<GetEventByIdQuery, EventDetailDto>, GetEventByIdQueryHandler>();
         services.AddScoped<IQueryHandler<GetReservationByIdQuery, ReservationDetailDto>, GetReservationByIdQueryHandler>();
         services.AddScoped<IQueryHandler<ListReservationsQuery, IReadOnlyList<ReservationListItemDto>>, ListReservationsQueryHandler>();
+        services.AddScoped<IQueryHandler<ListReservationsByEmailQuery, IReadOnlyList<ReservationListItemDto>>, ListReservationsByEmailQueryHandler>();
         services.AddScoped<IQueryHandler<OccupancyReportQuery, OccupancyReportDto>, OccupancyReportQueryHandler>();
 
         return services;

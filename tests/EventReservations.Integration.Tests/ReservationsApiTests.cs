@@ -16,9 +16,6 @@ public class ReservationsApiTests : IClassFixture<ApiFactory>
         _client = factory.CreateClient();
     }
 
-    private static readonly DateTime Start =
-        DateTime.SpecifyKind(DateTime.UtcNow.Date.AddDays(120).AddHours(18), DateTimeKind.Utc);
-
     private async Task<string> GetAdminTokenAsync()
     {
         var response = await _client.PostAsJsonAsync("/api/auth/login", new
@@ -37,18 +34,29 @@ public class ReservationsApiTests : IClassFixture<ApiFactory>
     private void Authorize(string token) =>
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
+    // Genera una fecha de inicio futura unica por evento para evitar el
+    // solapamiento de eventos en la misma sede (RN02) entre tests que comparten
+    // la misma base de datos.
+    private static DateTime UniqueStart()
+    {
+        var daysAhead = Random.Shared.Next(200, 5000);
+        return DateTime.SpecifyKind(
+            DateTime.UtcNow.Date.AddDays(daysAhead).AddHours(18), DateTimeKind.Utc);
+    }
+
     // Crea un evento (admin) y devuelve su id.
     private async Task<Guid> CreateEventAsync(string token)
     {
         Authorize(token);
+        var start = UniqueStart();
         var response = await _client.PostAsJsonAsync("/api/events", new
         {
             title = "Evento para reservas",
             description = "Evento usado por los tests de listado de reservas.",
             venueId = 1,
             capacity = 100,
-            startsAt = Start,
-            endsAt = Start.AddHours(2),
+            startsAt = start,
+            endsAt = start.AddHours(2),
             price = 50m,
             type = 2
         });
@@ -57,8 +65,8 @@ public class ReservationsApiTests : IClassFixture<ApiFactory>
         return created!.Id;
     }
 
-    // Crea una reserva (publico) y devuelve su id.
-    private async Task<Guid> CreateReservationAsync(Guid eventId)
+    // Crea una reserva (publico) y devuelve su id. Permite especificar el correo.
+    private async Task<Guid> CreateReservationAsync(Guid eventId, string email = "comprador@test.com")
     {
         _client.DefaultRequestHeaders.Authorization = null;
         var response = await _client.PostAsJsonAsync("/api/reservations", new
@@ -66,7 +74,7 @@ public class ReservationsApiTests : IClassFixture<ApiFactory>
             eventId,
             quantity = 2,
             buyerName = "Comprador de Prueba",
-            buyerEmail = "comprador@test.com"
+            buyerEmail = email
         });
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         var created = await response.Content.ReadFromJsonAsync<CreatedPayload>();
@@ -100,6 +108,41 @@ public class ReservationsApiTests : IClassFixture<ApiFactory>
         items.Should().NotBeNull();
         items!.Should().Contain(r => r.Id == reservationId);
         items.Should().OnlyContain(r => r.Status == 0);
+    }
+
+    [Fact]
+    public async Task SearchByEmail_IsPublic_ReturnsBuyerReservations()
+    {
+        var token = await GetAdminTokenAsync();
+        var eventId = await CreateEventAsync(token);
+
+        // Correo unico para aislar este test de otras reservas en la misma BD.
+        var email = $"buscar-{Guid.NewGuid():N}@test.com";
+        var reservationId = await CreateReservationAsync(eventId, email);
+
+        // Endpoint publico: sin token.
+        _client.DefaultRequestHeaders.Authorization = null;
+        var response = await _client.GetAsync($"/api/reservations/by-email?email={Uri.EscapeDataString(email)}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var items = await response.Content.ReadFromJsonAsync<List<ReservationListItem>>();
+        items.Should().NotBeNull();
+        items!.Should().ContainSingle(r => r.Id == reservationId);
+        items.Should().OnlyContain(r => r.BuyerEmail == email);
+    }
+
+    [Fact]
+    public async Task SearchByEmail_WhenNoReservations_ReturnsEmptyList()
+    {
+        var email = $"sin-reservas-{Guid.NewGuid():N}@test.com";
+
+        _client.DefaultRequestHeaders.Authorization = null;
+        var response = await _client.GetAsync($"/api/reservations/by-email?email={Uri.EscapeDataString(email)}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var items = await response.Content.ReadFromJsonAsync<List<ReservationListItem>>();
+        items.Should().NotBeNull();
+        items!.Should().BeEmpty();
     }
 
     private sealed record ReservationListItem(
