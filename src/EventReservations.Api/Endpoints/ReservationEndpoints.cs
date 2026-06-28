@@ -5,6 +5,7 @@ using EventReservations.Application.Reservations.ConfirmPayment;
 using EventReservations.Application.Reservations.CreateReservation;
 using EventReservations.Application.Reservations.GetReservationById;
 using EventReservations.Application.Reservations.ListReservations;
+using EventReservations.Application.Reservations.ListReservationsByEmail;
 using EventReservations.Domain.Reservations;
 
 namespace EventReservations.Api.Endpoints;
@@ -72,6 +73,20 @@ public static class ReservationEndpoints
             return Results.Ok(r);
         })
             .WithName("GetReservationById");
+
+        // Buscar reservas por correo (publico). Ver nota de privacidad en el query.
+        group.MapGet("/by-email", async (
+                string email,
+                IQueryHandler<ListReservationsByEmailQuery, IReadOnlyList<ReservationListItemDto>> handler,
+                CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(email))
+                return Results.BadRequest(new { error = "El correo es obligatorio." });
+
+            var items = await handler.HandleAsync(new ListReservationsByEmailQuery(email), ct);
+            return Results.Ok(items);
+        })
+            .WithName("ListReservationsByEmail");
 
         return app;
     }
