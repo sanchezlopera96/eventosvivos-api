@@ -55,6 +55,19 @@ public sealed class Reservation : Entity<Guid>
     }
 
     /// <summary>
+    /// Regenera el código de la reserva. Lo usa la capa de aplicación para
+    /// reintentar ante una colisión del índice único de código (RF-04).
+    /// Solo válido sobre una reserva ya confirmada.
+    /// </summary>
+    public void RegenerateCode()
+    {
+        if (Status != ReservationStatus.Confirmada)
+            throw new DomainException("Solo se puede regenerar el código de una reserva confirmada.");
+
+        Code = ReservationCode.Generate();
+    }
+
+    /// <summary>
     /// RF-05: cancela la reserva. Solo permitido desde Confirmada. Devuelve el
     /// efecto sobre el aforo según RN07: si faltan menos de 48h para el evento,
     /// las plazas se pierden; en caso contrario se liberan.
