@@ -1,6 +1,6 @@
 # ADR-003: Autenticación y autorización fuera de alcance
 
-- **Estado:** Aceptado
+- **Estado:** Supersedido por ADR-008
 - **Fecha:** 2026-06
 
 ## Contexto
