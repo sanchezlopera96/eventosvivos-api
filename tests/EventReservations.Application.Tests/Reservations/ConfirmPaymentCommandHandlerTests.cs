@@ -72,4 +72,49 @@ public class ConfirmPaymentCommandHandlerTests
 
         await act.Should().ThrowAsync<DomainException>();
     }
+
+    [Fact]
+    public async Task Handle_WhenCodeCollides_RegeneratesAndRetries()
+    {
+        var reservation = PendingReservation();
+        _reservations.Setup(r => r.GetByIdAsync(reservation.Id, It.IsAny<CancellationToken>()))
+                     .ReturnsAsync(reservation);
+
+        // El primer guardado colisiona (código duplicado); el segundo tiene éxito.
+        var calls = 0;
+        _uow.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                calls++;
+                if (calls == 1)
+                    throw new DuplicateReservationCodeException(new Exception("23505"));
+                return Task.FromResult(1);
+            });
+
+        var code = await Handler().HandleAsync(new ConfirmPaymentCommand(reservation.Id));
+
+        // Reintentó: dos guardados, código final válido y reserva confirmada.
+        _uow.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
+        Regex.IsMatch(code, @"^EV-\d{6}$").Should().BeTrue();
+        reservation.Status.Should().Be(ReservationStatus.Confirmada);
+    }
+
+    [Fact]
+    public async Task Handle_WhenCollisionPersists_PropagatesAfterMaxAttempts()
+    {
+        var reservation = PendingReservation();
+        _reservations.Setup(r => r.GetByIdAsync(reservation.Id, It.IsAny<CancellationToken>()))
+                     .ReturnsAsync(reservation);
+
+        // Todos los intentos colisionan: la excepción debe propagarse al agotar
+        // los reintentos (no se traga el error).
+        _uow.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DuplicateReservationCodeException(new Exception("23505")));
+
+        var act = () => Handler().HandleAsync(new ConfirmPaymentCommand(reservation.Id));
+
+        await act.Should().ThrowAsync<DuplicateReservationCodeException>();
+        // Se intentó el número máximo de veces (5).
+        _uow.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Exactly(5));
+    }
 }
