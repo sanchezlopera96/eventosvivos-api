@@ -10,8 +10,13 @@ public sealed class OccupancyReportQueryHandler
     : IQueryHandler<OccupancyReportQuery, OccupancyReportDto>
 {
     private readonly AppDbContext _db;
+    private readonly TimeProvider _timeProvider;
 
-    public OccupancyReportQueryHandler(AppDbContext db) => _db = db;
+    public OccupancyReportQueryHandler(AppDbContext db, TimeProvider timeProvider)
+    {
+        _db = db;
+        _timeProvider = timeProvider;
+    }
 
     public async Task<OccupancyReportDto> HandleAsync(
         OccupancyReportQuery query, CancellationToken cancellationToken = default)
@@ -32,8 +37,12 @@ public sealed class OccupancyReportQueryHandler
             ? 0m
             : Math.Round((decimal)ticketsSold / capacity * 100m, 2);
 
+        // RN06: estado efectivo en lectura (Completado si su fin ya pasó).
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var status = @event.EffectiveStatus(now);
+
         return new OccupancyReportDto(
             @event.Id, @event.Title, capacity, ticketsSold,
-            available, occupancy, revenue, @event.Status);
+            available, occupancy, revenue, status);
     }
 }

@@ -328,6 +328,7 @@ Registradas en [`docs/adr/`](docs/adr/):
 | 0008 | Autenticación de administrador con JWT |
 | 0009 | Edición de eventos |
 | 0010 | Búsqueda de reservas por email y privacidad |
+| 0011 | Estado efectivo del evento en lectura (RN06) |
 
 ## Autor
 

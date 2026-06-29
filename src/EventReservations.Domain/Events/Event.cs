@@ -187,6 +187,17 @@ public sealed class Event : Entity<Guid>
         Status = EventStatus.Cancelado;
     }
 
+    /// <summary>
+    /// RN06 (solo lectura): estado efectivo del evento en el instante dado.
+    /// Si el evento está Activo pero su fecha de fin ya pasó, se reporta como
+    /// Completado, sin mutar el agregado. Lo usan las consultas (que leen con
+    /// AsNoTracking) para que la API nunca reporte un estado obsoleto.
+    /// </summary>
+    public EventStatus EffectiveStatus(DateTime now)
+        => Status == EventStatus.Activo && now > Schedule.EndsAt
+            ? EventStatus.Completado
+            : Status;
+
     /// <summary>RN06: completa el evento si la fecha actual supera su fin.</summary>
     public void MarkCompletedIfEnded(DateTime now)
     {

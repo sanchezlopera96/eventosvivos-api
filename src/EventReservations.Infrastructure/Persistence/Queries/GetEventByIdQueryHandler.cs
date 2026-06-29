@@ -9,8 +9,13 @@ public sealed class GetEventByIdQueryHandler
     : IQueryHandler<GetEventByIdQuery, EventDetailDto>
 {
     private readonly AppDbContext _db;
+    private readonly TimeProvider _timeProvider;
 
-    public GetEventByIdQueryHandler(AppDbContext db) => _db = db;
+    public GetEventByIdQueryHandler(AppDbContext db, TimeProvider timeProvider)
+    {
+        _db = db;
+        _timeProvider = timeProvider;
+    }
 
     public async Task<EventDetailDto> HandleAsync(
         GetEventByIdQuery query, CancellationToken cancellationToken = default)
@@ -20,8 +25,12 @@ public sealed class GetEventByIdQueryHandler
             .FirstOrDefaultAsync(x => x.Id == query.Id, cancellationToken)
             ?? throw NotFoundException.For("evento", query.Id);
 
+        // RN06: estado efectivo en lectura (Completado si su fin ya pasó).
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var status = e.EffectiveStatus(now);
+
         return new EventDetailDto(
-            e.Id, e.Title, e.Description, e.VenueId, e.Type, e.Status,
+            e.Id, e.Title, e.Description, e.VenueId, e.Type, status,
             e.Schedule.StartsAt, e.Schedule.EndsAt,
             e.Price.Amount, e.Capacity.Value, e.AvailableSeats);
     }
