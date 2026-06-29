@@ -32,17 +32,18 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
 // --- Autenticacion JWT (area de administracion) ---
-builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
-
 // Fail-fast: la clave de firma JWT es obligatoria y debe tener longitud suficiente
-// para HMAC-SHA256 (>= 32 bytes). Nunca se arranca con una clave debil por defecto.
-var jwtSigningKey = builder.Configuration["Jwt:SigningKey"];
-if (string.IsNullOrWhiteSpace(jwtSigningKey) || Encoding.UTF8.GetByteCount(jwtSigningKey) < 32)
-{
-    throw new InvalidOperationException(
-        "La clave de firma JWT (Jwt:SigningKey) es obligatoria y debe tener al menos " +
-        "32 bytes. Configurala por variable de entorno o appsettings de desarrollo.");
-}
+// para HMAC-SHA256 (>= 32 bytes). Con ValidateOnStart, la validacion corre al
+// arrancar pero DESPUES de aplicar toda la configuracion (incluida la inyectada
+// en los tests de integracion). Nunca se arranca con una clave debil por defecto.
+builder.Services
+    .AddOptions<JwtOptions>()
+    .Bind(builder.Configuration.GetSection(JwtOptions.SectionName))
+    .Validate(
+        o => !string.IsNullOrWhiteSpace(o.SigningKey) && Encoding.UTF8.GetByteCount(o.SigningKey) >= 32,
+        "La clave de firma JWT (Jwt:SigningKey) es obligatoria y debe tener al menos 32 bytes. " +
+        "Configurala por variable de entorno o appsettings de desarrollo.")
+    .ValidateOnStart();
 builder.Services.Configure<AdminCredentialsOptions>(
     builder.Configuration.GetSection(AdminCredentialsOptions.SectionName));
 builder.Services.AddSingleton<TokenService>();
