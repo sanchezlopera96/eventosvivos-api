@@ -68,7 +68,7 @@ public class ReservationFlowTests
 
         // 4) Reporte de ocupación.
         var report = await Exec(ctx =>
-            new OccupancyReportQueryHandler(ctx)
+            new OccupancyReportQueryHandler(ctx, new TestClock(Now))
                 .HandleAsync(new OccupancyReportQuery(eventId)));
 
         report.TicketsSold.Should().Be(2);
