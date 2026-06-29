@@ -1,101 +1,338 @@
-# Entrega final - Escenarios y Tacticas aplicadas al proyecto
+# EventosVivos · API
 
-## Contexto del proyecto
+API REST para la gestión de eventos culturales y reserva de entradas, con **control de aforo en tiempo real** para eliminar el _overbooking_. Es el backend de la prueba técnica EventosVivos (.NET + Angular).
 
-El proyecto se centra en el desarrollo de un tutor inteligente enfocado en la identificación de debilidades de los estudiantes y la recomendación de contenidos personalizados para mejorar su aprendizaje. El sistema analizará el desempeño de los estudiantes a través de evaluaciones, detectará áreas de mejora y sugerirá recursos educativos específicos para cada estudiante. El tutor mediante rubricas previamente definidas, calificará el desempeño del estudiante y clasificará su nivel de comprensión, permitiendo adaptar las recomendaciones a sus necesidades individuales. El objetivo es proporcionar una experiencia de aprendizaje personalizada y efectiva que ayude a los estudiantes a superar sus dificultades en fundamentos de desarrollo de software.
+## Enlaces de producción
 
-## Priorización de atributos de calidad
+| Recurso | URL |
+|---------|-----|
+| **API (base)** | https://eventosvivos-api-ceiba-bse2accpaub5htgs.centralus-01.azurewebsites.net |
+| **Swagger / OpenAPI** | https://eventosvivos-api-ceiba-bse2accpaub5htgs.centralus-01.azurewebsites.net/swagger/index.html |
+| **Health check** | https://eventosvivos-api-ceiba-bse2accpaub5htgs.centralus-01.azurewebsites.net/health |
+| **Frontend (SPA Angular)** | https://nice-tree-0da071c10.7.azurestaticapps.net |
 
-|Atributo de calidad|Importancia (0-5)|Justificación|
-|---|---|---|
-|Capacidad de interacción|5|Es uno de los atributos más importantes porque los estudiantes interactuarán constantemente con la plataforma. El sistema debe ser intuitivo, claro y fácil de usar para evitar abandono y facilitar el aprendizaje autónomo. Una mala experiencia de usuario comprometería directamente la efectividad del tutor inteligente.|
-|Mantenibilidad|5|Los modelos pedagógicos, contenidos y algoritmos de recomendación evolucionarán constantemente. El sistema debe poder modificarse fácilmente para incorporar nuevas estrategias de aprendizaje, corregir reglas y adaptar contenidos sin rehacer toda la arquitectura.|
-|Seguridad|4|El sistema manejará datos académicos y posiblemente información personal de los estudiantes. Es importante proteger la confidencialidad y el acceso a los datos, aunque no se trata de información altamente sensible como datos bancarios o clínicos, por lo que no se prioriza con 5.|
-|Adecuación funcional|3|El sistema debe cumplir correctamente con las funciones básicas de identificación de debilidades y recomendación de contenidos, pero no requiere una cobertura funcional extremadamente amplia en una primera versión. Se prioriza tener funciones clave bien implementadas antes que incorporar muchas características adicionales.|
-|Flexibilidad|3|Es importante permitir futuras adaptaciones a distintos cursos o metodologías educativas, pero inicialmente el enfoque está en validar el funcionamiento principal del tutor inteligente antes de maximizar la adaptabilidad.|
-|Compatibilidad|2|Aunque es deseable integrarse con LMS o plataformas educativas externas, inicialmente el sistema puede operar de manera independiente. La interoperabilidad no es crítica en etapas tempranas del proyecto y puede evolucionar posteriormente.|
-|Fiabilidad|1|Aunque el sistema debe funcionar correctamente, un fallo ocasional no representa un riesgo crítico como en sistemas médicos o financieros. El usuario puede reintentar acciones sin consecuencias graves. Por ello, se acepta sacrificar cierto nivel de robustez extrema en favor de otros atributos más relevantes.|
+---
 
-![Priorización de atributos de calidad](resources/priorizacion_atributos_calidad_mentorsoft.png)
+## Tabla de contenido
 
-## Escenarios
+- [Descripción](#descripción)
+- [Tecnologías](#tecnologías)
+- [Arquitectura](#arquitectura)
+- [Estructura de carpetas](#estructura-de-carpetas)
+- [Reglas de negocio](#reglas-de-negocio)
+- [Requisitos](#requisitos)
+- [Instalación y ejecución local](#instalación-y-ejecución-local)
+- [Docker](#docker)
+- [Variables de entorno](#variables-de-entorno)
+- [Autenticación](#autenticación)
+- [Documentación de la API (endpoints)](#documentación-de-la-api-endpoints)
+- [Guía de pruebas en Swagger](#guía-de-pruebas-en-swagger)
+- [Pruebas automatizadas](#pruebas-automatizadas)
+- [Convenciones y buenas prácticas](#convenciones-y-buenas-prácticas)
+- [CI/CD](#cicd)
+- [Decisiones de arquitectura (ADR)](#decisiones-de-arquitectura-adr)
+- [Autor](#autor)
+- [Licencia](#licencia)
 
-- **Escenario 1: Estudiante envía evaluación sin finalizar**
+---
 
-|Item|Descripción|
-|---|---|
-|Atributo de calidad|**Capacidad de interacción** - Protección contra errores de usuario|
-|Fuente de estímulo|Estudiante|
-|Estímulo|El estudiante intenta enviar una evaluación incompleta o selecciona respuestas accidentalmente antes de finalizar.|
-|Artefacto|Módulo de evaluación|
-|Entorno|Durante una evaluación|
-|Respuesta|El sistema: <br> alerta sobre preguntas sin responder, <br> permite revisar respuestas antes de enviar, <br> guarda progreso automáticamente, <br> solicita confirmación final, <br> recupera sesión si ocurre cierre inesperado del navegador.|
-|Métrica de respuesta|Recuperación de sesión exitosa en al menos 98% de interrupciones. <br> Impide el envío de cuestionarios incompletos el 100% de las veces. <br> Tiempo de recuperación menor a 5 segundos.|
-|Riesgos o implicaciones|Pérdida de respuestas por desconexiones. <br> Duplicidad de envíos. <br> Inconsistencias de sesión. <br> Sobrecarga por persistencia continua.|
-|Tácticas arquitectónicas|Autosave incremental. <br> Persistencia temporal desacoplada. <br> Session recovery. <br> Caché temporal distribuida|
+## Descripción
 
-- **Escenario 2: Modificación de reglas de evaluación académica**
+EventosVivos es una _startup_ cultural que vende entradas para eventos en vivo. Su dolor principal es el **overbooking**: vender más entradas que el aforo por no controlar la disponibilidad en tiempo real. Esta API resuelve ese problema modelando el evento como **frontera de consistencia del aforo**: cada reserva bloquea cupo en el momento de crearse, no al pagar, de modo que dos compradores no puedan llevarse las mismas últimas entradas.
 
-|Item|Descripción|
-|---|---|
-|Atributo de calidad|**Mantenibilidad** - Capacidad para ser modificado|
-|Fuente de estímulo|Docente|
-|Estímulo|El docente desea agregar un nuevo campo a la rubrica de calificación|
-|Artefacto|Módulo de evaluación|
-|Entorno|Un día cualquiera en el ambiente productivo|
-|Respuesta|El sistema: <br> centraliza reglas académicas en un único componente, <br> minimiza impacto en evaluaciones existentes, <br> mantiene trazabilidad de cambios.|
-|Métrica de respuesta|Cambio implementado en menos de 2 días. <br> Menos de 3 módulos afectados. <br> Cobertura automatizada superior al 80% sobre reglas modificadas.|
-|Riesgos o implicaciones|Alta propagación de cambios. <br> Riesgo de inconsistencias históricas. <br> Dependencia excesiva del equipo técnico.|
-|Tácticas arquitectónicas|Versionamiento de reglas. <br> APIs desacopladas|
+El servicio expone una API REST con dos superficies: una **pública** (catálogo de eventos, creación y cancelación de reservas, consulta por correo, reporte de ocupación) y una de **administración** protegida con JWT (alta/edición/cancelación de eventos y confirmación de pagos). Incluye reglas de negocio de calendario y penalización, reporte de ocupación e ingresos, y control de concurrencia a nivel de base de datos.
 
-- **Escenario 3: Protección contra modificación no autorizada de resultados de evaluación**
+## Tecnologías
 
-|Item|Descripción|
-|---|---|
-|Atributo de calidad|**Seguridad** - Integridad|
-|Fuente de estímulo|Usuario malicioso autenticado o atacante interno.|
-|Estímulo|Un usuario intenta alterar calificaciones, resultados diagnósticos o rutas de aprendizaje directamente desde solicitudes manipuladas o acceso indebido a la base de datos|
-|Artefacto|Módulo de evaluación y módulo de clasificación|
-|Entorno|Sistema en operación normal con múltiples usuarios concurrentes.|
-|Respuesta|El sistema: <br> rechaza modificaciones no autorizadas, <br> valida permisos y contexto de operación, <br> registra auditoría inmutable de cambios, <br> detecta inconsistencias de integridad, <br> preserva trazabilidad histórica de resultados.|
-|Métrica de respuesta|100% de modificaciones no autorizadas bloqueadas. <br> Trazabilidad completa de cambios críticos. <br> Detección de inconsistencias menor a 5 segundos. <br> Cero pérdida de integridad en resultados persistidos.|
-|Riesgos o implicaciones|Escalamiento indebido de privilegios. <br> Manipulación directa de endpoints. <br> Alteración de datos desde accesos internos. <br> Falta de trazabilidad de cambios. <br> Inconsistencias entre servicios distribuidos.|
-|Tácticas arquitectónicas|RBAC y políticas de autorización centralizadas. <br> Auditoría inmutable. <br> Validación server-side obligatoria. <br> Control transaccional ACID. <br> Principio de menor privilegio.|
+- **.NET 10** · Minimal APIs
+- **PostgreSQL 16** · Entity Framework Core 10 (Npgsql)
+- **FluentValidation** — validación de entrada
+- **JWT (Bearer)** + **BCrypt** — autenticación de administrador
+- **Swagger / OpenAPI** — documentación interactiva
+- **xUnit** + **Moq** + **FluentAssertions** — pruebas unitarias e integración
+- **Docker / Docker Compose** — PostgreSQL en local
+- **GitHub Actions** — CI/CD
+- **Azure App Service** (Central US) — hosting de la API
 
-- **Escenario 4: Respuesta rápida durante evaluaciones en línea**
+## Arquitectura
 
-|Item|Descripción|
-|---|---|
-|Atributo de calidad|**Eficiencia en desempeño** - Comportamiento temporal|
-|Fuente de estímulo|Estudiantes concurrentes|
-|Estímulo|Miles de estudiantes responden preguntas simultáneamente de la evaluación|
-|Artefacto|Módulo de evaluación|
-|Entorno|Pico de carga académica durante evaluaciones masivas|
-|Respuesta|El sistema: <br> registra respuestas sin pérdida, <br> mantiene tiempos de respuesta bajos, <br> evita bloqueos de sesión, <br> preserva continuidad de la evaluación.|
-|Métrica de respuesta|Tiempo de respuesta menor a 2 segundo por interacción. <br> Soporte de al menos 1.000 estudiantes concurrentes. <br> Pérdida de respuestas igual a 0. <br> Disponibilidad superior al 99.9% durante evaluación.|
-|Riesgos o implicaciones|Saturación de base de datos. <br> Contención de escritura concurrente. <br> Timeouts de sesión. <br> Sobrecarga de red. <br> Bloqueos transaccionales. <br> Caída parcial del sistema durante picos|
-|Tácticas arquitectónicas|Escalamiento horizontal. <br> Escritura asíncrona controlada. <br> Uso de colas de mensajería. <br> CQRS.|
+**Clean Architecture** con dominio rico (DDD) y separación **CQRS** de comandos y consultas. Las dependencias apuntan siempre hacia el centro; la capa de dominio no conoce a ninguna otra.
 
-## Justificación de tácticas arquitectónicas
+```
+Api  →  Application  →  Domain  ←  Infrastructure
+                                   (implementa los puertos de Application)
+```
 
-|Escenario|Táctica|Justificación|Ventajas|Riesgos|
-|---|---|---|---|---|
-|1|Autosave incremental|Reduce la pérdida de respuestas guardando cambios parciales periódicamente durante la evaluación.|Minimiza pérdida de información, mejora experiencia del estudiante, permite recuperación rápida.|Sobrecarga de escrituras, aumento de tráfico de red, posibles inconsistencias si no hay control de concurrencia.
-|1|Persistencia temporal desacoplada|Separa el almacenamiento temporal del definitivo para evitar afectar el rendimiento y la consistencia de las evaluaciones oficiales.|Mayor escalabilidad, aislamiento de fallos, mejor rendimiento en escritura temporal.|Complejidad arquitectónica adicional, necesidad de sincronización entre almacenamiento temporal y definitivo.|
-|1|Session recovery|Permite restaurar el estado de la evaluación tras cierres inesperados o desconexiones.|Continuidad de la evaluación, reducción de frustración del usuario, mayor confiabilidad percibida.|Manejo complejo de sesiones, riesgo de sesiones inconsistentes o concurrentes.|
-|1|Caché temporal distribuida|Almacena temporalmente el estado de evaluaciones activas para reducir latencia y carga sobre la base de datos principal.|Respuesta rápida, soporte de alta concurrencia, disminución de carga en persistencia principal.|Riesgo de pérdida temporal de datos si la caché falla, complejidad de sincronización y expiración de datos.|
-|2|Versionamiento de reglas|Permite modificar la estructura de rúbricas sin afectar evaluaciones históricas ni reglas ya utilizadas en producción.|Conserva trazabilidad, facilita rollback, reduce inconsistencias históricas.|Incremento de complejidad en almacenamiento y mantenimiento de múltiples versiones.|
-|2|APIs desacopladas|Evita que cambios en la estructura interna de rúbricas impacten directamente otros módulos consumidores.|Reduce propagación de cambios, facilita evolución independiente de componentes, mejora mantenibilidad.|Riesgo de sobreabstracción, necesidad de controlar compatibilidad entre versiones de APIs.|
-|3|RBAC y políticas de autorización centralizadas|Controla qué usuarios pueden modificar calificaciones o resultados, evitando accesos indebidos y escalamiento de privilegios.|Centraliza reglas de seguridad, facilita auditoría y administración de permisos, reduce accesos no autorizados.|Configuración compleja de roles y riesgo de permisos mal definidos.|
-|3|Auditoría inmutable|Permite registrar toda modificación crítica de forma trazable e irreversible para detectar manipulaciones o accesos indebidos.|Trazabilidad completa, soporte forense, detección de actividades sospechosas.|Incremento en almacenamiento y posible impacto en rendimiento si no se optimiza.|
-|3|Validación server-side obligatoria|Evita confiar en datos manipulados desde el cliente y asegura que todas las reglas de negocio se validen en backend.|Reduce manipulación de endpoints, garantiza integridad de datos, fortalece seguridad.|Mayor carga de procesamiento en backend y duplicación parcial de validaciones frontend/backend.|
-|3|Control transaccional ACID|Garantiza consistencia e integridad de los datos durante operaciones críticas concurrentes.|Evita corrupción de datos, asegura atomicidad y consistencia entre operaciones relacionadas.|Posibles bloqueos y degradación de rendimiento bajo alta concurrencia.|
-|3|Principio de menor privilegio|Limita los permisos de usuarios y servicios únicamente a las operaciones necesarias.|Reduce superficie de ataque y minimiza impacto de cuentas comprometidas.|Mayor complejidad administrativa y riesgo de afectar funcionalidades por permisos insuficientes.|
-|4|Escalamiento horizontal|Permite distribuir la carga de miles de estudiantes concurrentes entre múltiples instancias del módulo de evaluación, evitando saturación de un único nodo.|Alta disponibilidad, mejor manejo de picos de carga, mejora de latencia bajo concurrencia.|Complejidad en balanceo de carga, problemas de consistencia de sesión si no se diseña correctamente.|
-|4|Escritura asíncrona controlada|Desacopla la recepción de respuestas de su persistencia inmediata, reduciendo bloqueo en la experiencia del estudiante.|Menor latencia percibida, mayor throughput, evita bloqueos por escritura directa en base de datos.|Riesgo de pérdida temporal de datos si falla la cola, consistencia eventual más compleja de gestionar.|
-|4|Uso de colas de mensajería|Introduce un buffer entre la captura de respuestas y su procesamiento/persistencia para absorber picos de carga.|Manejo eficiente de picos, desacoplamiento entre componentes, mayor resiliencia ante fallos.|Latencia en procesamiento, complejidad operativa, necesidad de monitoreo de colas.|
-|4|CQRS|Separa operaciones de lectura (visualización de preguntas) y escritura (envío de respuestas), optimizando cada flujo de forma independiente.|Optimización de rendimiento, escalabilidad independiente de lectura/escritura, reduce contención en base de datos.|Mayor complejidad arquitectónica, duplicación de modelos, consistencia eventual entre lecturas y escrituras.|
+- **Domain**: agregados (`Event`, `Reservation`, `Venue`), _value objects_ (`Capacity`, `Money`, `Schedule`, `ReservationCode`, `BuyerInfo`), enums de estado e invariantes de negocio. Sin dependencias de framework.
+- **Application**: casos de uso como _command/query handlers_ (CQRS sin MediatR), puertos (`IEventRepository`, `IReservationRepository`, `IVenueRepository`, `IUnitOfWork`), validadores y DTOs.
+- **Infrastructure**: EF Core, configuraciones de mapeo, repositorios, _query handlers_ de lectura, `UnitOfWork`, migraciones y _seed_ de venues.
+- **Api**: Minimal APIs, autenticación JWT, filtros de validación, manejo global de errores (`ProblemDetails`), Swagger, CORS y rate limiting.
 
-## Diagrama C4 nivel 3
+Diagramas detallados (capas, modelo de dominio, flujo anti-overbooking y máquinas de estado) en [`docs/architecture.md`](docs/architecture.md).
 
-![Diagrama C4 nivel 3](resources/c4_itmentorsoft_componentes.drawio.png)
+## Estructura de carpetas
+
+```text
+src/
+├── EventReservations.Domain/          # Núcleo: agregados, VOs, reglas de negocio
+│   ├── Common/                        # Entity, Money, DomainException
+│   ├── Events/                        # Event, Capacity, Schedule, EventType/Status
+│   ├── Reservations/                  # Reservation, BuyerInfo, ReservationCode...
+│   └── Venues/                        # Venue
+├── EventReservations.Application/     # Casos de uso (CQRS)
+│   ├── Abstractions/                  # Puertos (repos, UoW, handlers)
+│   ├── Events/                        # CreateEvent, UpdateEvent, ListEvents...
+│   └── Reservations/                  # CreateReservation, ConfirmPayment...
+├── EventReservations.Infrastructure/  # EF Core, repos, queries, migraciones
+│   └── Persistence/
+└── EventReservations.Api/             # Minimal APIs, auth, validación, errores
+    ├── Auth/  Endpoints/  Errors/  Validation/
+
+tests/
+├── EventReservations.Domain.Tests/        # Reglas de negocio (TDD)
+├── EventReservations.Application.Tests/    # Casos de uso (con dobles)
+└── EventReservations.Integration.Tests/    # API end-to-end (WebApplicationFactory)
+
+docs/
+├── adr/                               # Architecture Decision Records
+└── architecture.md                    # Diagramas (Mermaid)
+```
+
+## Reglas de negocio
+
+El agregado `Event` es la frontera de consistencia del aforo.
+
+| Regla | Descripción | Dónde se aplica |
+|-------|-------------|-----------------|
+| RN01 | La capacidad del evento no puede exceder el aforo del venue | Dominio (`Event.Create/Update`) |
+| RN02 | No puede haber dos eventos activos solapados en el mismo venue | Aplicación |
+| RN03 | En fin de semana no se permite iniciar después de las 22:00 | Dominio |
+| RN04 | No se puede reservar a menos de 1h del inicio | Aplicación (requiere reloj) |
+| RN05 | Restricción por precio (> \$100) | Aplicación |
+| RN06 | Un evento pasada su fecha de fin se marca "completado" | Dominio |
+| RN07 | Cancelar con < 48h penaliza: las plazas se "pierden" (no vuelven a la venta) | Dominio |
+| RF-01 | La fecha de inicio debe ser futura | Dominio |
+| RF-03 | Una reserva se crea con nombre + email (sin cuenta), en estado pendiente | Dominio/Aplicación |
+| RF-06 | Reporte de ocupación (ver abajo) | Aplicación |
+
+### Modelo de aforo (clave)
+
+Una reserva en **`pendiente_pago` ya bloquea cupo** (ver [ADR-004](docs/adr/0004-modelo-de-aforo.md)):
+
+```
+SeatsTaken      = plazas de reservas pendientes + confirmadas
+LostSeats       = plazas perdidas por penalización RN07
+AvailableSeats  = Capacity − SeatsTaken − LostSeats
+```
+
+### Reporte de ocupación (RF-06)
+
+Por cada evento: **entradas vendidas** (solo confirmadas), **disponibles restantes** (`AvailableSeats`, excluye las perdidas por RN07), **porcentaje de ocupación**, **ingresos** (precio × confirmadas) y **estado** (activo / cancelado / completado).
+
+## Requisitos
+
+- **.NET SDK 10**
+- **Docker Desktop** (para PostgreSQL en local)
+- **dotnet-ef** (`dotnet tool install --global dotnet-ef`)
+
+## Instalación y ejecución local
+
+### Clonar el repositorio
+
+```bash
+git clone https://github.com/sanchezlopera96/eventosvivos-api.git
+cd eventosvivos-api
+```
+
+### Restaurar dependencias
+
+```bash
+dotnet restore
+```
+
+### Levantar PostgreSQL
+
+```bash
+docker compose up -d
+```
+
+### Configurar secretos de desarrollo
+
+Crear `src/EventReservations.Api/appsettings.Development.json` (ignorado por git) con la cadena de conexión, la sección `Jwt` y las credenciales de administrador. Ver [Variables de entorno](#variables-de-entorno).
+
+### Ejecutar migraciones
+
+```bash
+dotnet ef database update \
+  --project src/EventReservations.Infrastructure \
+  --startup-project src/EventReservations.Api
+```
+
+Esto crea el esquema y siembra los venues: Auditorio Central (Bogotá, aforo 200), Sala Norte (Bogotá, 50), Arena Sur (Medellín, 500).
+
+### Ejecutar la aplicación
+
+```bash
+dotnet run --project src/EventReservations.Api
+```
+
+La API queda en `https://localhost:7xxx`, con Swagger en `/swagger`.
+
+## Docker
+
+La base de datos se levanta con Docker Compose:
+
+```bash
+docker compose up -d        # inicia PostgreSQL 16
+docker compose down         # detiene y elimina el contenedor
+```
+
+> La API se ejecuta con `dotnet run` en desarrollo. El despliegue en producción se realiza en Azure App Service mediante CI/CD (ver [CI/CD](#cicd)).
+
+## Variables de entorno
+
+En Azure las claves anidadas usan doble guion bajo (`__`). En local se definen en `appsettings.Development.json`.
+
+| Variable | Descripción |
+|----------|-------------|
+| `ConnectionStrings__Default` | Cadena de conexión a PostgreSQL |
+| `Jwt__Issuer` | Emisor del token |
+| `Jwt__Audience` | Audiencia del token |
+| `Jwt__SigningKey` | Clave de firma (secreto) |
+| `AdminCredentials__Username` | Usuario administrador |
+| `AdminCredentials__PasswordHash` | Hash BCrypt de la contraseña |
+| `Cors__AllowedOrigins__0..n` | Orígenes permitidos (p. ej. el dominio del SPA) |
+| `Swagger__Enabled` | Habilita Swagger fuera de desarrollo |
+
+Los secretos nunca se versionan: `appsettings.Development.json` está en `.gitignore` y en Azure se configuran como variables de entorno del App Service.
+
+## Autenticación
+
+La superficie pública no requiere credenciales; la cancelación de reservas usa el identificador (GUID no adivinable) como localizador. La superficie de **administración** requiere un **JWT** (ver [ADR-008](docs/adr/0008-jwt-admin.md)).
+
+```http
+POST /api/auth/login
+Content-Type: application/json
+
+{ "username": "<usuario>", "password": "<contraseña>" }
+```
+
+Respuesta: `{ "token": "...", "expiresAt": "..." }`. El token se envía como `Authorization: Bearer <token>`. Si no hay credenciales configuradas, el login responde **503** ("seguro por defecto").
+
+## Documentación de la API (endpoints)
+
+### Públicos
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/events` | Lista eventos con filtros opcionales (`type`, `venueId`, `status`, `startsFrom`, `startsTo`, `title`) |
+| GET | `/api/events/{id}` | Detalle de un evento |
+| GET | `/api/events/{id}/occupancy` | Reporte de ocupación del evento (RF-06) |
+| POST | `/api/reservations` | Crea una reserva (pendiente de pago) |
+| POST | `/api/reservations/{id}/cancel` | Cancela una reserva (localizador = id) |
+| GET | `/api/reservations/by-email?email=` | Reservas asociadas a un correo |
+| GET | `/api/reservations/{id}` | Detalle de una reserva |
+| POST | `/api/auth/login` | Obtiene un JWT de administrador |
+
+### Administración (requieren JWT)
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/api/events` | Crea un evento |
+| PUT | `/api/events/{id}` | Edita un evento activo |
+| POST | `/api/events/{id}/cancel` | Cancela un evento |
+| GET | `/api/reservations` | Lista reservas (filtro opcional por estado) |
+| POST | `/api/reservations/{id}/confirm` | Confirma el pago (devuelve el código EV-######) |
+
+Los errores siguen `ProblemDetails`: violaciones de regla de negocio → **422**; recursos inexistentes → **404**; validación de entrada → **400**; no autorizado → **401**.
+
+### Ejemplo: crear una reserva
+
+```http
+POST /api/reservations
+Content-Type: application/json
+
+{
+  "eventId": "00000000-0000-0000-0000-000000000000",
+  "quantity": 2,
+  "buyerName": "Ana Pérez",
+  "buyerEmail": "ana@example.com"
+}
+```
+
+## Guía de pruebas en Swagger
+
+Flujo recomendado para probar la API extremo a extremo desde `/swagger`:
+
+1. **Listar eventos** — `GET /api/events`. Copia el `id` de un evento activo.
+2. **Crear una reserva** — `POST /api/reservations` con ese `eventId`, `quantity`, `buyerName` y `buyerEmail`. La reserva queda pendiente y **bloquea cupo**. Copia el `id` devuelto.
+3. **Ver ocupación** — `GET /api/events/{id}/occupancy`: `availableSeats` baja, pero "vendidas" sigue en 0 (aún no se confirma el pago).
+4. **Autenticarse como admin** — `POST /api/auth/login`. Copia el `token` y pulsa **Authorize** (candado) en Swagger, introduciendo `Bearer <token>`.
+5. **Confirmar el pago** — `POST /api/reservations/{id}/confirm`. Devuelve el código `EV-######`; la reserva cuenta como vendida.
+6. **Reporte tras la venta** — `GET /api/events/{id}/occupancy`: "vendidas" e "ingresos" reflejan la confirmación.
+7. **Buscar por correo** — `GET /api/reservations/by-email?email=ana@example.com`.
+8. **Casos de regla** — intenta reservar más entradas que `availableSeats` (→ 422) o crear un evento sin token (→ 401).
+
+## Pruebas automatizadas
+
+```bash
+dotnet test
+```
+
+Con cobertura:
+
+```bash
+dotnet test --collect:"XPlat Code Coverage"
+```
+
+Tres niveles:
+
+- **Domain.Tests** — reglas del agregado (creación, aforo, RN03, RN07…), con enfoque TDD.
+- **Application.Tests** — casos de uso con dobles de prueba (Moq) sobre los puertos.
+- **Integration.Tests** — API extremo a extremo con `WebApplicationFactory`: auth (401), casos felices (200/201) y reglas (422/404).
+
+> En Windows con Smart App Control activo, las DLL de test recién compiladas pueden quedar bloqueadas y omitir la suite de integración en local; la CI en GitHub Actions (Linux) ejecuta la suite completa.
+
+## Convenciones y buenas prácticas
+
+- **Clean Architecture** + **DDD** (dominio rico, value objects, invariantes en el agregado).
+- **CQRS** sin MediatR (handlers explícitos de comando/consulta).
+- **SOLID** y dependencias hacia el dominio (inversión de dependencias vía puertos).
+- **Conventional Commits** y desarrollo incremental por _feature branches_ + Pull Request.
+- **TDD** para las reglas de negocio.
+- **ProblemDetails** para errores; sin filtrar detalles internos en 5xx.
+- **Seguro por defecto**: superficie administrativa inaccesible si no hay credenciales; secretos fuera del repositorio.
+
+## CI/CD
+
+**GitHub Actions** automatiza build, pruebas y despliegue:
+
+- En cada push a `main`, el workflow compila la solución, ejecuta los tests (Linux) y, si pasan, despliega a **Azure App Service** (Central US).
+- Las migraciones de base de datos se aplican en el arranque de la aplicación.
+- Los secretos se inyectan como variables de entorno del App Service; nunca se versionan.
+
+## Decisiones de arquitectura (ADR)
+
+Registradas en [`docs/adr/`](docs/adr/):
+
+| ADR | Decisión |
+|-----|----------|
+| 0000 | Plan de trabajo y proceso de desarrollo |
+| 0001 | Clean Architecture + DDD |
+| 0002 | CQRS sin MediatR |
+| 0003 | _(Supersedida por 0008)_ Autenticación fuera de alcance |
+| 0004 | Modelo de aforo: `pendiente_pago` bloquea disponibilidad |
+| 0005 | Dos repositorios + Unit of Work |
+| 0006 | PostgreSQL: concurrencia optimista con `xmin` |
+| 0007 | Estrategia de seguridad de la API |
+| 0008 | Autenticación de administrador con JWT |
+| 0009 | Edición de eventos |
+| 0010 | Búsqueda de reservas por email y privacidad |
+
+## Autor
+
+**sanchezlopera96** — [GitHub](https://github.com/sanchezlopera96)
+
+## Licencia
+
+Proyecto desarrollado como prueba técnica. Licencia no especificada.
