@@ -33,6 +33,16 @@ builder.Services.AddProblemDetails();
 
 // --- Autenticacion JWT (area de administracion) ---
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
+
+// Fail-fast: la clave de firma JWT es obligatoria y debe tener longitud suficiente
+// para HMAC-SHA256 (>= 32 bytes). Nunca se arranca con una clave debil por defecto.
+var jwtSigningKey = builder.Configuration["Jwt:SigningKey"];
+if (string.IsNullOrWhiteSpace(jwtSigningKey) || Encoding.UTF8.GetByteCount(jwtSigningKey) < 32)
+{
+    throw new InvalidOperationException(
+        "La clave de firma JWT (Jwt:SigningKey) es obligatoria y debe tener al menos " +
+        "32 bytes. Configurala por variable de entorno o appsettings de desarrollo.");
+}
 builder.Services.Configure<AdminCredentialsOptions>(
     builder.Configuration.GetSection(AdminCredentialsOptions.SectionName));
 builder.Services.AddSingleton<TokenService>();
@@ -51,9 +61,7 @@ builder.Services
             ValidIssuer = jwt.Issuer,
             ValidAudience = jwt.Audience,
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(string.IsNullOrEmpty(jwt.SigningKey)
-                    ? new string('0', 32)   // placeholder; en prod la clave viene por env
-                    : jwt.SigningKey)),
+                Encoding.UTF8.GetBytes(jwt.SigningKey)),
             ClockSkew = TimeSpan.FromSeconds(30),
         };
     });
