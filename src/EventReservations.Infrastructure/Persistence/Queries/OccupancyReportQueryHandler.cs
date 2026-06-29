@@ -30,6 +30,12 @@ public sealed class OccupancyReportQueryHandler
             .Where(r => r.EventId == query.EventId && r.Status == ReservationStatus.Confirmada)
             .SumAsync(r => (int?)r.Quantity, cancellationToken) ?? 0;
 
+        // Pendientes = plazas bloqueadas por reservas pendiente_pago. No cuentan
+        // como vendidas, pero sí reducen la disponibilidad (ADR-004).
+        var pendingSeats = await _db.Reservations.AsNoTracking()
+            .Where(r => r.EventId == query.EventId && r.Status == ReservationStatus.PendientePago)
+            .SumAsync(r => (int?)r.Quantity, cancellationToken) ?? 0;
+
         var capacity = @event.Capacity.Value;
         var available = @event.AvailableSeats;              // excluye perdidas (RN07)
         var revenue = ticketsSold * @event.Price.Amount;    // precio × confirmadas
@@ -43,6 +49,6 @@ public sealed class OccupancyReportQueryHandler
 
         return new OccupancyReportDto(
             @event.Id, @event.Title, capacity, ticketsSold,
-            available, occupancy, revenue, status);
+            available, occupancy, revenue, status, pendingSeats);
     }
 }

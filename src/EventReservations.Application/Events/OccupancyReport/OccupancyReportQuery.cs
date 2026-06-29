@@ -8,6 +8,8 @@ public sealed record OccupancyReportQuery(Guid EventId);
 /// <summary>
 /// Reporte de ocupación (RF-06). "Vendidas" e "ingresos" cuentan solo reservas
 /// confirmadas; "disponibles" excluye las entradas perdidas por RN07 (ADR-004).
+/// "Pendientes" expone las plazas bloqueadas por reservas pendiente_pago, que
+/// reducen la disponibilidad aunque todavía no cuenten como vendidas.
 /// </summary>
 public sealed record OccupancyReportDto(
     Guid EventId,
@@ -17,4 +19,5 @@ public sealed record OccupancyReportDto(
     int AvailableSeats,
     decimal OccupancyPercentage,
     decimal TotalRevenue,
-    EventStatus Status);
+    EventStatus Status,
+    int PendingSeats);
