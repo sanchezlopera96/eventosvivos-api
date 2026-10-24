@@ -191,7 +191,7 @@ docker compose down         # detiene y elimina el contenedor
 
 ## Variables de entorno
 
-En Azure las claves anidadas usan doble guion bajo (`__`). En local se definen en `appsettings.Development.json`.
+En Azure y en Kubernetes las claves anidadas usan doble guion bajo (`__`). En local se definen en `appsettings.Development.json`.
 
 | Variable | Descripción |
 |----------|-------------|
@@ -310,6 +310,14 @@ Tres niveles:
 - En cada push a `main`, el workflow compila la solución, ejecuta los tests (Linux) y, si pasan, despliega a **Azure App Service** (Central US).
 - Las migraciones de base de datos se aplican en el arranque de la aplicación.
 - Los secretos se inyectan como variables de entorno del App Service; nunca se versionan.
+
+### Despliegue en AWS (k3s + RDS)
+
+- El workflow `docker-ghcr.yml` publica la imagen en `ghcr.io/sanchezlopera96/eventosvivos-api` en cada push a `main`.
+- La API corre en un cluster **k3s** detrás de un ALB; el Ingress envía `/api` a la API y `/` al SPA, así que comparten dominio y no se necesita CORS.
+- La base de datos es **Amazon RDS for PostgreSQL** en subredes privadas. Como RDS exige SSL, la cadena de conexión incluye `SSL Mode=Require`.
+- Los secretos (`ConnectionStrings__Default`, `Jwt__SigningKey`, `AdminCredentials__*`) se inyectan desde un Secret de Kubernetes.
+- La infraestructura (Terraform) y los manifests (`k8s/`) viven en el repositorio `terraform-basic`.
 
 ## Decisiones de arquitectura (ADR)
 
